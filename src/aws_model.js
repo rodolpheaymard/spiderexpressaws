@@ -167,7 +167,8 @@ class AwsModel
       let timestamp = this.get_timestamp();
       switch(mode) {
         case "create" : 
-          docClient.put({   Item: { spider_id: obj.id,
+          docClient.put({   TableName: this.awsdatatablename,
+                            Item: { spider_id: obj.id,
                                      spider_type: obj.type,
                                      spider_deleted: obj.deleted,
                                      spider_created_date: timestamp,
@@ -175,7 +176,7 @@ class AwsModel
                                      spider_deleted_date: "",
                                      spider_content: this.extract_content(obj),
                                     },
-                                    TableName: this.awsdatatablename,
+                                    
                             })
                             .promise()
                             .then(data => console.log(data.Attributes))
@@ -184,13 +185,28 @@ class AwsModel
         case "update" : 
         break;
         case "delete" : 
+          docClient.update({  TableName: this.awsdatatablename,
+                              Key: {
+                                spider_id: obj.id,
+                              },
+                              UpdateExpression: `set spider_deleted = :valTrue , spider_deleted_date = :dateDeleted `,
+                              ExpressionAttributeValues: {
+                                ":valTrue": true,
+                                ":dateDeleted": timestamp,
+                              }
+                            })
+          .promise()
+          .then(data => console.log(data.Attributes))
+          .catch(console.error);      
         break;
       }
 
-
     } catch (error) {
       console.log('An error has occurred while saving', error);
+      return false;
     }  
+
+    return true;
   }
 
   ping()
@@ -301,6 +317,7 @@ class AwsModel
 
   removeObject(id)
   {
+    let result = { deleted : false };
     this.datamodel.objects.forEach(element => {
       if (element.id === id )
       {
@@ -308,10 +325,12 @@ class AwsModel
         {
           element.deleted = true;      
 
-          this.save_object(element,"delete");
+          result.deleted = this.save_object(element,"delete");
         }
       }
     });
+
+    return  result ;
   }
 
 

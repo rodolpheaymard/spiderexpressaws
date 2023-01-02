@@ -56,8 +56,8 @@ router.post('/add/:objecttype', (req, res) => {
 });
   
 router.post('/remove/:objectid', (req, res) => {
-  mymodel.removeObject(req.params.objectid);
-  res.json(newobj);
+  let response = mymodel.removeObject(req.params.objectid);
+  res.json(response);
 });        
   
 router.use((req, res) => {
