@@ -37,10 +37,25 @@ class AwsModel
   init_aws()
   {        
     this.test_credentials();
+    
+    let defaultAWS = "us-east-2";
+    if (process.env.MY_AWS_DEFAULT_REGION !== null && process.env.MY_AWS_DEFAULT_REGION !== undefined)
+    {
+      defaultAWS = process.env.MY_AWS_DEFAULT_REGION ;
+    }
+
     this.awsConfig = {
-      "region" :"us-east-2",
-       "endpoint"  : "http://dynamodb.us-east-2.amazonaws.com",
+      "region" :  defaultAWS,
+      "endpoint"  : "http://dynamodb." + defaultAWS + ".amazonaws.com"
     };
+
+    if (process.env.MY_AWS_ACCESS_KEY_ID !== null && process.env.MY_AWS_ACCESS_KEY_ID !== undefined
+      && process.env.MY_AWS_SECRET_ACCESS_KEY !== null  && process.env.MY_AWS_SECRET_ACCESS_KEY  !== undefined)
+      {
+        this.awsConfig.credentials =  { accessKeyId : process.env.MY_AWS_ACCESS_KEY_ID  , 
+                                        secretAccessKey : process.env.MY_AWS_SECRET_ACCESS_KEY };
+      }
+
     AWS.config.update(this.awsConfig);
     console.log("aws init ok ");
   }
@@ -180,7 +195,8 @@ class AwsModel
 
   ping()
   {
-     let result = "spider express server is available for " + this.getObjects("user").length + " users.";
+     let result = "spider express server is available for " + this.getObjects("user").length + " users. ";
+     result += "databasename [" + this.awsdatatablename + "]";
      return result;
   }
 
