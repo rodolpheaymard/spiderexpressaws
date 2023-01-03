@@ -179,7 +179,7 @@ class AwsModel
                                     
                             })
                             .promise()
-                            .then(data => console.log(data.Attributes))
+                            .then(data => console.log( obj.id + " created : " + data))
                             .catch(console.error);                            
         break;
         case "update" : 
@@ -196,7 +196,7 @@ class AwsModel
                               }
                             })
           .promise()
-          .then(data => console.log(data.Attributes))
+          .then(data => console.log( obj.id + " deleted : " + data))
           .catch(console.error);      
         break;
       }
