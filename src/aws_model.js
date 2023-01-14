@@ -7,7 +7,7 @@ class AwsModel
   {
     this.init_dotenv();
 
-    this.datamodel = { objects : [] , loaded : false, lastmodif : null};
+    this.datamodel = { objects : new Map(), loaded : false, lastmodif : null};
     this.awsdatatablename = "spider_data_" + process.env.MY_AWS_ENVIRONMENT;
     console.log( this.awsdatatablename );
 
@@ -114,7 +114,7 @@ class AwsModel
         let content = JSON.parse(itm.spider_content);
         let fullobj = { ...obj, ...content };
 
-        this.datamodel.objects.push(fullobj);
+        this.datamodel.objects.set(fullobj.id, fullobj);
         console.log( " obj :   " + JSON.stringify(fullobj));
       } );
 
@@ -124,19 +124,6 @@ class AwsModel
      console.log("receiving error " + error );
     })
     .catch(console.error)
-
-
-  //  docClient.scan({
-  //  TableName: "my-table",
-  //  FilterExpression:
-  //    "attribute_not_exists(deletedAt) AND contains(firstName, :firstName)",
-   // ExpressionAttributeValues: {
-   //   ":firstName": "John",
-   // },
-  //})
-  //.promise()
-  //.then(data => console.log(data.Items))
-  //.catch(console.error)
   
   }
 
@@ -158,7 +145,7 @@ class AwsModel
     return dt.toISOString();
   }
 
-  save_object(obj, mode)
+  save_object_to_aws(obj, mode)
   {
     try {    
       this.datamodel.lastmodif = new Date();
@@ -221,7 +208,7 @@ class AwsModel
     let user = null;
     let result = false;
     let message = "login not found"; 
-    this.datamodel.objects.forEach(element => {
+    this.datamodel.objects.forEach((element,id,map) => {
       if (element.type === "user" && element.deleted === false)
       {
         if (element.username === username )
@@ -245,20 +232,6 @@ class AwsModel
     return { response : result , message : message, user: user };
   }
 
-  addObject(obj , objtype)
-  {
-    if (obj.id === null || obj.id  === undefined || obj.id === "")
-    {
-      obj.id = objtype + "-" + this.datamodel.objects.length;
-    }
-    obj.type = objtype;
-    obj.deleted = false;
-    this.datamodel.objects.push(obj);
-    this.save_object(obj,"create");
-
-    return obj;
-  }
-
   getObjects(objtype)
   {
     let result = [];
@@ -267,9 +240,8 @@ class AwsModel
       return result;
     }
 
-    this.datamodel.objects.forEach(element => {
-      if (element.type === objtype 
-          && element.deleted === false)
+    this.datamodel.objects.forEach((element,id,map)  => {
+      if (element.type === objtype && element.deleted === false)
       {
         if (element.type === "user")
         {
@@ -294,7 +266,7 @@ class AwsModel
   {
     let result = [];
 
-    this.datamodel.objects.forEach(element => {    
+    this.datamodel.objects.forEach((element,id,map)  => {    
       if (element.type === "user")
       {
         // special case for users :  we do not give password ...
@@ -315,21 +287,47 @@ class AwsModel
     return this.datamodel;
   }
 
+  
+  addObject(obj , objtype)
+  {
+    if (obj.id === null || obj.id  === undefined || obj.id === "")
+    {
+      obj.id = objtype + "-" + this.datamodel.objects.size;
+    }
+    obj.type = objtype;
+    obj.deleted = false;
+    this.datamodel.objects.set(obj.id,obj);
+    this.save_object_to_aws(obj,"create");
+
+    return obj;
+  }
+
+  
+  saveObject(obj , objtype)
+  {
+    if (this.datamodel.objects.has(obj.id))
+    {
+      this.datamodel.objects.delete(obj.id);
+    }
+    this.datamodel.objects.set(obj.id,obj);
+    
+    this.save_object_to_aws(obj,"update");
+
+    return obj;
+  }
+
   removeObject(id)
   {
     let result = { deleted : false };
-    this.datamodel.objects.forEach(element => {
-      if (element.id === id )
+    if (this.datamodel.objects.has(id))
+    {
+      let element = this.datamodel.objects.get(id);
+      if ( element.deleted !== true)
       {
-        if ( element.deleted !== true)
-        {
-          element.deleted = true;      
-
-          result.deleted = this.save_object(element,"delete");
-        }
+        element.deleted = true;      
+        result.deleted = this.save_object_to_aws(element,"delete");
       }
-    });
-
+    }
     return  result ;
   }
 

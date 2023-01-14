@@ -49,10 +49,26 @@ router.get("/all/:objecttype1/:objecttype2/:objecttype3/:objecttype4", (req,res)
   res.json({ list1 : result1, list2 : result2, list3 : result3, list4 : result4});
 });
 
+router.get("/all/:objecttype1/:objecttype2/:objecttype3/:objecttype4/:objecttype5", (req,res)=>{
+  let result1 = mymodel.getObjects(req.params.objecttype1);
+  let result2 = mymodel.getObjects(req.params.objecttype2);
+  let result3 = mymodel.getObjects(req.params.objecttype3);
+  let result4 = mymodel.getObjects(req.params.objecttype4);
+  let result5 = mymodel.getObjects(req.params.objecttype5);
+
+  res.json({ list1 : result1, list2 : result2, list3 : result3, list4 : result4, list5 : result5});
+});
+
 router.post('/add/:objecttype', (req, res) => {
   let newobj = req.body;
   mymodel.addObject(newobj, req.params.objecttype);
   res.json(newobj);
+});
+
+router.post('/save/:objecttype', (req, res) => {
+  let objtosave = req.body;
+  mymodel.saveObject(objtosave, req.params.objecttype);
+  res.json(objtosave);
 });
   
 router.post('/remove/:objectid', (req, res) => {
