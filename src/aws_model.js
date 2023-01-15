@@ -115,10 +115,11 @@ class AwsModel
         let fullobj = { ...obj, ...content };
 
         this.datamodel.objects.set(fullobj.id, fullobj);
-        console.log( " obj :   " + JSON.stringify(fullobj));
+        // console.log( " obj :   " + JSON.stringify(fullobj));
       } );
 
       this.datamodel.loaded = true;   
+      console.log( this.datamodel.objects.size + " objects in database ");
     },
     error => {
      console.log("receiving error " + error );
@@ -143,57 +144,6 @@ class AwsModel
   {
     let dt = new Date();
     return dt.toISOString();
-  }
-
-  save_object_to_aws(obj, mode)
-  {
-    try {    
-      this.datamodel.lastmodif = new Date();
-      let docClient = new AWS.DynamoDB.DocumentClient();     
-
-      let timestamp = this.get_timestamp();
-      switch(mode) {
-        case "create" : 
-          docClient.put({   TableName: this.awsdatatablename,
-                            Item: { spider_id: obj.id,
-                                     spider_type: obj.type,
-                                     spider_deleted: obj.deleted,
-                                     spider_created_date: timestamp,
-                                     spider_modified_date: timestamp,
-                                     spider_deleted_date: "",
-                                     spider_content: this.extract_content(obj),
-                                    },
-                                    
-                            })
-                            .promise()
-                            .then(data => console.log( obj.id + " created : " + data))
-                            .catch(console.error);                            
-        break;
-        case "update" : 
-        break;
-        case "delete" : 
-          docClient.update({  TableName: this.awsdatatablename,
-                              Key: {
-                                spider_id: obj.id,
-                              },
-                              UpdateExpression: `set spider_deleted = :valTrue , spider_deleted_date = :dateDeleted `,
-                              ExpressionAttributeValues: {
-                                ":valTrue": true,
-                                ":dateDeleted": timestamp,
-                              }
-                            })
-          .promise()
-          .then(data => console.log( obj.id + " deleted : " + data))
-          .catch(console.error);      
-        break;
-      }
-
-    } catch (error) {
-      console.log('An error has occurred while saving', error);
-      return false;
-    }  
-
-    return true;
   }
 
   ping()
@@ -329,6 +279,71 @@ class AwsModel
       }
     }
     return  result ;
+  }
+
+  
+  save_object_to_aws(obj, mode)
+  {
+    try {    
+      this.datamodel.lastmodif = new Date();
+      let docClient = new AWS.DynamoDB.DocumentClient();     
+
+      let timestamp = this.get_timestamp();
+      switch(mode) {
+        case "create" : 
+          docClient.put({   TableName: this.awsdatatablename,
+                            Item: { spider_id: obj.id,
+                                     spider_type: obj.type,
+                                     spider_deleted: obj.deleted,
+                                     spider_created_date: timestamp,
+                                     spider_modified_date: timestamp,
+                                     spider_deleted_date: "",
+                                     spider_content: this.extract_content(obj),
+                                    },
+                                    
+                            })
+                            .promise()
+                            .then(data => console.log( obj.id + " created"))
+                            .catch(console.error);                            
+        break;
+        case "update" : 
+        docClient.update({  TableName: this.awsdatatablename,
+                            Key: {
+                              spider_id: obj.id,
+                            },
+                            UpdateExpression: `set spider_modified_date = :dateModif,  spider_content = :newContent`,
+                            ExpressionAttributeValues: {
+                              ":newContent": this.extract_content(obj),
+                              ":dateModif": timestamp,
+                            }
+                          })
+                  .promise()
+                  .then(data => console.log( obj.id + " modified"))
+                  .catch(console.error);    
+        break;
+        case "delete" : 
+          docClient.update({  TableName: this.awsdatatablename,
+                              Key: {
+                                spider_id: obj.id,
+                              },
+                              UpdateExpression: `set spider_deleted = :valTrue , spider_deleted_date = :dateDeleted `,
+                              ExpressionAttributeValues: {
+                                ":valTrue": true,
+                                ":dateDeleted": timestamp,
+                              }
+                            })
+          .promise()
+          .then(data => console.log( obj.id + " deleted"))
+          .catch(console.error);      
+        break;
+      }
+
+    } catch (error) {
+      console.log('An error has occurred while saving', error);
+      return false;
+    }  
+
+    return true;
   }
 
 
