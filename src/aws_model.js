@@ -167,7 +167,7 @@ class AwsModel
           {
             result =  true;
             message = "";
-            user = {username : element.username, isadmin : element.isadmin } ;
+            user = { id : element.id , username : element.username, isadmin : element.isadmin } ;
             return;
           }
           else
@@ -182,6 +182,20 @@ class AwsModel
     return { response : result , message : message, user: user };
   }
 
+  secureObject(element)
+  {
+    if (element.type === "user")
+    {
+      // special case for users :  we do not give password ...
+      return { "id" : element.id , 
+              "type" : element.type, 
+              "deleted" : element.deleted,
+              "username" : element.username , 
+              "isadmin" : element.isadmin };    
+    }
+    return element;    
+  }
+
   getObjects(objtype)
   {
     let result = [];
@@ -193,18 +207,57 @@ class AwsModel
     this.datamodel.objects.forEach((element,id,map)  => {
       if (element.type === objtype && element.deleted === false)
       {
-        if (element.type === "user")
+        result.push(this.secureObject(element));
+      }
+    });
+
+    return result;
+  }
+
+  getObjectsByTypes(objtypes)
+  {
+    let result = [];
+    if (objtypes === null || objtypes  === undefined)
+    {
+      return result;
+    }
+
+    this.datamodel.objects.forEach((element,id,map)  => {
+      if (element.deleted === false)
+      {
+        objtypes.forEach( t => {
+          if ( element.type === t ) {
+            result.push(this.secureObject(element));
+          }  
+        });
+      }
+    });
+
+    return result;
+  }
+
+  filterObjects(objtype , objprop, objpropvalue)
+  {
+    let result = [];
+    if (objtype === null || objtype  === undefined)
+    {
+      return result;
+    }
+    if (objprop === null || objprop  === undefined)
+    {
+      return result;
+    }
+    if (objpropvalue === null || objpropvalue  === undefined)
+    {
+      return result;
+    }
+
+    this.datamodel.objects.forEach((element,id,map)  => {
+      if (element.type === objtype && element.deleted === false)
+      {
+        if (element[objprop] === objpropvalue )
         {
-          // special case for users :  we do not give password ...
-          result.push({ "id" : element.id , 
-                        "type" : element.type, 
-                        "deleted" : element.deleted,
-                        "username" : element.username , 
-                        "isadmin" : element.isadmin });    
-        }
-        else
-        {
-          result.push(element);    
+          result.push(this.secureObject(element));
         }
       }
     });
@@ -217,17 +270,7 @@ class AwsModel
     let result = [];
 
     this.datamodel.objects.forEach((element,id,map)  => {    
-      if (element.type === "user")
-      {
-        // special case for users :  we do not give password ...
-        result.push({ "id" : element.id , "type" : element.type, "deleted" : element.deleted,
-                      "username" : element.username , "isadmin" : element.isadmin });    
-      }
-      else
-      {
-        result.push(element);
-      }
-    
+      result.push(this.secureObject(element));    
     });
     return result;
   }

@@ -29,13 +29,24 @@ router.post("/all", (req,res)=>{
   let filter = req.body;
   var result = {objects : []};
 
+  let objs = mymodel.getObjectsByTypes(filter.types);
+  objs.forEach( o => { result.objects.push(o);})
+  
+  res.json(result);
+});
+
+router.post("/filter", (req,res)=>{
+  let filter = req.body;
+  var result = {objects : []};
   filter.types.forEach(t => {
-      let objs = mymodel.getObjects(t);
+      let objs = mymodel.filterObjects(t, filter.filterprop , filter.filterval);
       objs.forEach( o => { result.objects.push(o);})
     }); 
 
   res.json(result);
 });
+
+
 
 
 router.post('/add/:objecttype', (req, res) => {
