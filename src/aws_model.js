@@ -187,7 +187,7 @@ class AwsModel
     if (element.type === "user")
     {
       // special case for users :  we do not give password ...
-      return { "id" : element.id , 
+      return {"id" : element.id , 
               "type" : element.type, 
               "deleted" : element.deleted,
               "username" : element.username , 
