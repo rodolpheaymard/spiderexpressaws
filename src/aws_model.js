@@ -7,7 +7,10 @@ class AwsModel
   {
     this.init_dotenv();
 
-    this.datamodel = { objects : new Map(), loaded : false, lastmodif : null};
+    this.datamodel = { objects : new Map(), 
+                        objectsByTypes : new Map(),
+                        loaded : false, 
+                        lastmodif : null};
     this.awsdatatablename = "spider_data_" + process.env.MY_AWS_ENVIRONMENT;
     console.log( this.awsdatatablename );
 
@@ -114,12 +117,13 @@ class AwsModel
         let content = JSON.parse(itm.spider_content);
         let fullobj = { ...obj, ...content };
 
-        this.datamodel.objects.set(fullobj.id, fullobj);
+        this.storeObjectInMaps(fullobj);
+        
         // console.log( " obj :   " + JSON.stringify(fullobj));
       } );
 
       this.datamodel.loaded = true;   
-      console.log( this.datamodel.objects.size + " objects in database ");
+      console.log( this.getNbObjects() + " objects in database ");
     },
     error => {
      console.log("receiving error " + error );
@@ -127,7 +131,6 @@ class AwsModel
     .catch(console.error)
   
   }
-
 
 
   extract_content(obj)  {
@@ -196,6 +199,46 @@ class AwsModel
     return element;    
   }
 
+  
+  storeObjectInMaps(obj)
+  {
+    this.datamodel.objects.set(obj.id, obj);
+
+    if(this.datamodel.objectsByTypes.has(obj.type) === false)
+    {
+      this.datamodel.objectsByTypes.set(obj.type, new Map());
+    }
+    this.datamodel.objectsByTypes.get(obj.type).set(obj.id,obj);
+  }
+  
+  removeObjectFromMaps(obj)
+  {
+    if (this.datamodel.objects.has(obj.id))
+    {
+      this.datamodel.objects.delete(obj.id);
+    }
+
+    if(this.datamodel.objectsByTypes.has(obj.type) === true)
+    {
+      let objsmap = this.datamodel.objectsByTypes.get(obj.type);
+      if (objsmap.has(obj.id))
+      {
+        objsmap.delete(obj.id);
+      }
+    }
+  }
+
+  getNbObjects()
+  {
+    return this.datamodel.objects.size;
+  }
+
+  getNewId()
+  {
+    return this.datamodel.objects.size;
+  }
+
+
   getObjects(objtype)
   {
     let result = [];
@@ -204,12 +247,16 @@ class AwsModel
       return result;
     }
 
-    this.datamodel.objects.forEach((element,id,map)  => {
-      if (element.type === objtype && element.deleted === false)
-      {
-        result.push(this.secureObject(element));
-      }
-    });
+    if(this.datamodel.objectsByTypes.has(objtype) === true)
+    {
+      let objsmap = this.datamodel.objectsByTypes.get(objtype);
+      objsmap.forEach((element,key,map)  => {
+        if (element.type === objtype && element.deleted === false)
+        {
+          result.push(this.secureObject(element));
+        }        
+      });
+    }
 
     return result;
   }
@@ -221,17 +268,12 @@ class AwsModel
     {
       return result;
     }
-
-    this.datamodel.objects.forEach((element,id,map)  => {
-      if (element.deleted === false)
-      {
-        objtypes.forEach( t => {
-          if ( element.type === t ) {
-            result.push(this.secureObject(element));
-          }  
-        });
-      }
-    });
+  
+    for(let i = 0; i< objtypes.length ; i++)
+    {
+      let objs = this.getObjects(objtypes[i]);
+      objs.forEach( o => { result.push(o);})
+    }
 
     return result;
   }
@@ -252,7 +294,11 @@ class AwsModel
       return result;
     }
 
-    this.datamodel.objects.forEach((element,id,map)  => {
+    let objs = this.getObjects(objtype);
+
+    for(let i = 0; i< objs.length ; i++)
+    {
+      let element = objs[i];
       if (element.type === objtype && element.deleted === false)
       {
         if (element[objprop] === objpropvalue )
@@ -260,7 +306,7 @@ class AwsModel
           result.push(this.secureObject(element));
         }
       }
-    });
+    }
 
     return result;
   }
@@ -279,17 +325,16 @@ class AwsModel
   { 
     return this.datamodel;
   }
-
   
   addObject(obj , objtype)
   {
     if (obj.id === null || obj.id  === undefined || obj.id === "")
     {
-      obj.id = objtype + "-" + this.datamodel.objects.size;
+      obj.id = objtype + "-" + this.getNewId();
     }
     obj.type = objtype;
     obj.deleted = false;
-    this.datamodel.objects.set(obj.id,obj);
+    this.storeObjectInMaps(obj);
     this.save_object_to_aws(obj,"create");
 
     return obj;
@@ -298,12 +343,9 @@ class AwsModel
   
   saveObject(obj , objtype)
   {
-    if (this.datamodel.objects.has(obj.id))
-    {
-      this.datamodel.objects.delete(obj.id);
-    }
-    this.datamodel.objects.set(obj.id,obj);
-    
+    this.removeObjectFromMaps(obj);
+    this.storeObjectInMaps(obj);    
+
     this.save_object_to_aws(obj,"update");
 
     return obj;

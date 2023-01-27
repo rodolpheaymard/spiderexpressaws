@@ -32,6 +32,7 @@ router.post("/all", (req,res)=>{
   let objs = mymodel.getObjectsByTypes(filter.types);
   objs.forEach( o => { result.objects.push(o);})
   
+  console.log( " found " + objs.length + " objects of types " + filter.types)
   res.json(result);
 });
 
