@@ -138,6 +138,7 @@ class AwsModel
     delete duplicatedobj.id;
     delete duplicatedobj.type;
     delete duplicatedobj.deleted;
+    delete duplicatedobj.cache;
     let result = JSON.stringify(duplicatedobj);
    
     return result;
