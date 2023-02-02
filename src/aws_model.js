@@ -269,7 +269,7 @@ class AwsModel
     this.datamodel.idsByTypes.get(obj.type).set(this.extractNumId(obj.id),obj);
   }
   
-  /**removeObjectFromMaps(obj)
+  removeObjectFromMaps(obj)
   {
     if (this.datamodel.objects.has(obj.id))
     {
@@ -284,7 +284,7 @@ class AwsModel
         objsmap.delete(obj.id);
       }
     }
-  }**/
+  }
 
   getNbObjects()
   {
