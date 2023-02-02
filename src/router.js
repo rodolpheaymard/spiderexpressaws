@@ -15,6 +15,11 @@ router.get("/login/:username/:password", (req,res)=>{
   res.json(result);
 });
 
+router.get("/newlogin/:username/:password", (req,res)=>{
+  let result = mymodel.newlogin(req.params.username, req.params.password);
+  res.json(result);
+});
+
 router.get("/allobjects", (req,res)=>{
   let result = mymodel.getAllObjects();
   res.json(result);
@@ -50,15 +55,15 @@ router.post("/filter", (req,res)=>{
 
 
 
-router.post('/add/:objecttype', (req, res) => {
+router.post('/add', (req, res) => {
   let newobj = req.body;
-  mymodel.addObject(newobj, req.params.objecttype);
+  mymodel.addObject(newobj);
   res.json(newobj);
 });
 
-router.post('/save/:objecttype', (req, res) => {
+router.post('/save', (req, res) => {
   let objtosave = req.body;
-  mymodel.saveObject(objtosave, req.params.objecttype);
+  mymodel.saveObject(objtosave);
   res.json(objtosave);
 });
   

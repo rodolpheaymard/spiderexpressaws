@@ -7,8 +7,9 @@ class AwsModel
   {
     this.init_dotenv();
 
-    this.datamodel = { objects : new Map(), 
+    this.datamodel = {  objects : new Map(), 
                         objectsByTypes : new Map(),
+                        idsByTypes : new Map(),
                         loaded : false, 
                         lastmodif : null};
     this.awsdatatablename = "spider_data_" + process.env.MY_AWS_ENVIRONMENT;
@@ -77,7 +78,7 @@ class AwsModel
     });
   }
 
-  load_object(id)
+  /**load_object(id)
   {
     let docClient = new AWS.DynamoDB.DocumentClient();
     
@@ -92,15 +93,13 @@ class AwsModel
         console.log("aws error : "+ JSON.stringify(err,null, 2));
       } else {
         console.log("aws success : "+ JSON.stringify(data,null, 2));    
-      }
-  
+      }  
     });    
-  }
+  }**/
   
   load_all()
   {
-    let docClient = new AWS.DynamoDB.DocumentClient();
-    
+    let docClient = new AWS.DynamoDB.DocumentClient();    
     console.log("loading table "+ this.awsdatatablename );
 
     docClient.scan({
@@ -108,18 +107,12 @@ class AwsModel
     })
     .promise()
     .then(data => {
-
       console.log("receiving data ");
-
-      data.Items.forEach( itm => {
-        
+      data.Items.forEach( itm => {        
         let obj = {id : itm.spider_id, type : itm.spider_type, deleted : itm.spider_deleted } ;
         let content = JSON.parse(itm.spider_content);
         let fullobj = { ...obj, ...content };
-
         this.storeObjectInMaps(fullobj);
-        
-        // console.log( " obj :   " + JSON.stringify(fullobj));
       } );
 
       this.datamodel.loaded = true;   
@@ -128,10 +121,9 @@ class AwsModel
     error => {
      console.log("receiving error " + error );
     })
-    .catch(console.error)
+    .catch(console.error);
   
   }
-
 
   extract_content(obj)  {
     let duplicatedobj = { ...obj};
@@ -161,28 +153,77 @@ class AwsModel
   {
     let user = null;
     let result = false;
-    let message = "login not found"; 
-    this.datamodel.objects.forEach((element,id,map) => {
-      if (element.type === "user" && element.deleted === false)
-      {
-        if (element.username === username )
+    let message = ""; 
+    if (this.datamodel.loaded === false)
+    {
+      message = "server not started";       
+    }
+    else
+    {
+      message = "login not found"; 
+      this.datamodel.objects.forEach((element,id,map) => {
+        if (element.type === "user" && element.deleted === false)
         {
-          if (element.password === password)
+          if (element.username === username )
           {
-            result =  true;
-            message = "";
-            user = { id : element.id , username : element.username, isadmin : element.isadmin } ;
-            return;
-          }
-          else
-          {
-            result = false;
-            message = "bad password";
-            return;
+            if (element.password === password)
+            {
+              result =  true;
+              message = "";
+              user = { id : element.id , username : element.username, isadmin : element.isadmin } ;
+              return;
+            }
+            else
+            {
+              result = false;
+              message = "bad password";
+              return;
+            }
           }
         }
+      });  
+    }
+
+    return { response : result , message : message, user: user };
+  }
+
+  
+  newlogin(username, password)
+  {    
+    let result = false;   
+    let user = null;
+    let message = "";
+
+    if (this.datamodel.loaded === false)
+    {
+      result = false;
+      message = "server not started";    
+    } 
+    else
+    {
+      let allusers = this.getObjects("user");
+      let okToCreate = true;
+      allusers.forEach( u =>  {
+        if (u.username === username )
+        {
+          okToCreate = false;
+          return;
+        }
+      });
+
+      if (okToCreate === true)
+      {
+        result =  true;
+        user =  { id : "" , type : "user", username : username, password : password, isadmin : false } ;
+        this.addObject(user);
       }
-    });
+      else
+      {
+        result = false;
+        message = "login exists already, please choose another login"; 
+      }
+    }
+     
     return { response : result , message : message, user: user };
   }
 
@@ -199,20 +240,36 @@ class AwsModel
     }
     return element;    
   }
-
   
-  storeObjectInMaps(obj)
+  extractNumId(objid)
   {
+    let numstr = objid.split('-');
+    let num = "";
+    if (numstr.length > 1)
+    {
+      return numstr[1];
+    } 
+    return num;
+  }
+
+  storeObjectInMaps(obj)
+  {   
     this.datamodel.objects.set(obj.id, obj);
 
     if(this.datamodel.objectsByTypes.has(obj.type) === false)
     {
       this.datamodel.objectsByTypes.set(obj.type, new Map());
     }
-    this.datamodel.objectsByTypes.get(obj.type).set(obj.id,obj);
+    if(this.datamodel.idsByTypes.has(obj.type) === false)
+    {
+      this.datamodel.idsByTypes.set(obj.type, new Map());
+    }
+    
+    this.datamodel.objectsByTypes.get(obj.type).set(obj.id,obj);        
+    this.datamodel.idsByTypes.get(obj.type).set(this.extractNumId(obj.id),obj);
   }
   
-  removeObjectFromMaps(obj)
+  /**removeObjectFromMaps(obj)
   {
     if (this.datamodel.objects.has(obj.id))
     {
@@ -227,23 +284,32 @@ class AwsModel
         objsmap.delete(obj.id);
       }
     }
-  }
+  }**/
 
   getNbObjects()
   {
     return this.datamodel.objects.size;
   }
 
-  getNewId()
-  {
-    return this.datamodel.objects.size;
+  getNewId(objtype)
+  {  
+    let idsByType = this.datamodel.idsByTypes.get(objtype);
+    let nump = idsByType.size;
+    console.log(" getnewid for " + objtype + ", starting at : " + nump);
+    while( idsByType.has( nump.toString() ) === true)
+    {
+      nump ++ ;
+    }
+    console.log(" getnewid for " + objtype + ", found : " + nump);
+   
+    return nump.toString();
   }
-
 
   getObjects(objtype)
   {
     let result = [];
-    if (objtype === null || objtype  === undefined)
+    if (this.datamodel.loaded === false
+        || objtype === null || objtype  === undefined)
     {
       return result;
     }
@@ -315,25 +381,30 @@ class AwsModel
   getAllObjects()
   {
     let result = [];
-
+    if (this.datamodel.loaded === false)
+    {
+      return result;
+    }
+    
     this.datamodel.objects.forEach((element,id,map)  => {    
       result.push(this.secureObject(element));    
     });
     return result;
   }
 
-  getFullDatabase()
+  /** getFullDatabase()
   { 
     return this.datamodel;
-  }
+  } **/
   
-  addObject(obj , objtype)
+  addObject(obj)
   {
-    if (obj.id === null || obj.id  === undefined || obj.id === "")
+    if (this.datamodel.loaded === false)
     {
-      obj.id = objtype + "-" + this.getNewId();
+      return null;
     }
-    obj.type = objtype;
+
+    obj.id = obj.type + "-" + this.getNewId(obj.type);
     obj.deleted = false;
     this.storeObjectInMaps(obj);
     this.save_object_to_aws(obj,"create");
@@ -344,6 +415,11 @@ class AwsModel
   
   saveObject(obj , objtype)
   {
+    if (this.datamodel.loaded === false)
+    {
+      return null;
+    }
+
     this.removeObjectFromMaps(obj);
     this.storeObjectInMaps(obj);    
 
@@ -355,6 +431,11 @@ class AwsModel
   removeObject(id)
   {
     let result = { deleted : false };
+    if (this.datamodel.loaded === false)
+    {
+      return result;
+    }
+
     if (this.datamodel.objects.has(id))
     {
       let element = this.datamodel.objects.get(id);
